@@ -1,49 +1,48 @@
 import React from 'react';
 import {
-  View, ImageBackground, FlatList, TextInput, TouchableOpacity, Text,
+  View, FlatList, TextInput, TouchableOpacity, Text,
 } from 'react-native';
 import firebase from 'react-native-firebase';
-import ChatLine from './ChatLine';
 
 export default class ChatRoom extends React.PureComponent {
-  static navigationOptions = {
-    title: 'Chat',
-  };
-
   state = {
     chatData: [],
     chatInputContent: '',
     username: '',
   }
 
+  _loadData=() => {
+    firebase.database().ref('/chatRoom').on('value', (snapshot) => {
+      console.log('================================================');
+      console.log('snapshot', snapshot);
+      console.log('================================================');
+      if (snapshot.val() !== undefined && snapshot.val() !== null) {
+        this.setState({
+          chatData: Object.values(snapshot.val()),
+          chatInputContent: '',
+        });
+      }
+    });
+  }
+
+  componentWillMount() {
+    this._loadData();
+  }
+
   componentDidMount() {
-    this.setState({ username: this.props.navigation.getParam('name', 'test') });
+    const { navigation } = this.props;
+    this.setState({ username: navigation.state.params.name });
   }
 
   _sendMessage = () => {
+    const { username, chatInputContent } = this.state;
     try {
       firebase.database().ref('/chatRoom').push({
-        userName: this.state.username,
-        chatContent: this.state.chatInputContent,
+        userName: username,
+        chatContent: chatInputContent,
       }).then((data) => {
-        firebase.database().ref('/chatRoom').on('value', (snapshot) => {
-          console.log('================================================');
-          console.log('data', data);
-          console.log('================================================');
-          if (snapshot.val() !== undefined && snapshot.val() !== null) {
-            console.log('================================================');
-            console.log('Object.values(snapshot.val())', Object.values(snapshot.val()));
-            console.log('================================================');
-            this.setState({
-              chatData: Object.values(snapshot.val()),
-              chatInputContent: '',
-            });
-          }
-        });
-      })
-        .catch((error) => {
-          console.log(error);
-        });
+        this._loadData();
+      });
     } catch (error) {
       console.log('_sendMessage error', error);
     }
@@ -54,60 +53,80 @@ export default class ChatRoom extends React.PureComponent {
   }
 
   _renderChatLine = (item) => {
-    if (item.userName === this.state.username) {
+    const { username } = this.state;
+    const { userName, chatContent } = item.item;
+    if (userName === username) {
       return (
-        <View style={{ alignItems: 'flex-end' }}>
-          <ChatLine sender="YOU" chatContent={item.chatContent} />
+        <View style={{ alignItems: 'flex-end', width: '100%', backgroundColor: 'red' }}>
+          <View style={{
+            flexDirection: 'column',
+            width: '50%',
+            alignItems: 'flex-start',
+            padding: 8,
+            backgroundColor: '#FFF',
+            borderRadius: 8,
+            marginBottom: 10,
+            marginTop: 10,
+            marginLeft: 5,
+            marginRight: 5,
+          }}
+          >
+            <Text style={{ color: '#005ce6', marginBottom: 5 }}>YOU</Text>
+            <Text>{chatContent}</Text>
+          </View>
         </View>
       );
     }
     return (
-      <ChatLine sender={item.userName} chatContent={item.chatContent} />
+      <View style={{
+        flexDirection: 'column',
+        width: '50%',
+        alignItems: 'flex-start',
+        padding: 8,
+        backgroundColor: '#FFF',
+        borderRadius: 8,
+        marginBottom: 10,
+        marginTop: 10,
+        marginLeft: 5,
+        marginRight: 5,
+      }}
+      >
+        <Text style={{ color: '#005ce6', marginBottom: 5 }}>{userName}</Text>
+        <Text>{chatContent}</Text>
+      </View>
     );
   };
 
   render() {
+    const { chatData, chatInputContent } = this.state;
     return (
-      <View style={{ flex: 1, flexDirection: 'column', justifyContent: 'flex-end' }}>
-        {/* <ImageBackground
-          imageStyle={{ opacity: 0.4 }}
-          source={require('../../assets/images/background.jpg')}
-          style={{
-            flex: 9 / 10, backgroundColor: '#A5A5A5', flexDirection: 'column', justifyContent: 'flex-end',
-          }}
-        > */}
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         <FlatList
-          style={{ flex: 1, backgroundColor: '#ccc' }}
-          data={this.state.chatData}
-          renderItem={({ item }) => this._renderChatLine(item)}
+          style={{ flex: 1, backgroundColor: '#e5e5' }}
+          data={chatData}
+          renderItem={this._renderChatLine}
+          keyExtractor={(item, index) => `${item}-${index}`}
+          inverted
         />
         {/* </ImageBackground> */}
-        <View style={{ flex: 1 / 10 }}>
-          <View style={{
-            flexDirection: 'row',
-            backgroundColor: '#FFF',
-            width: '100%',
-            height: '100%',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            marginLeft: 2,
-          }}
-          >
-            <View style={{ flex: 9 / 10 }}>
-              <TextInput
-                placeholder="Nhập nội dung chat"
-                value={this.state.chatInputContent}
-                onChangeText={text => this._onChangeChatInput(text)}
-                style={{ height: 100, fontSize: 18 }}
-              />
-            </View>
-            <View style={{ flex: 1 / 10 }}>
-              <TouchableOpacity onPress={this._sendMessage}>
-                <Text style={{ color: '#0099ff', fontSize: 14, marginRight: 15 }}>
-                      Gửi
-                </Text>
-              </TouchableOpacity>
-            </View>
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: '#FFF',
+          alignItems: 'center',
+        }}
+        >
+          <View style={{ flex: 9 }}>
+            <TextInput
+              placeholder="Nhập nội dung chat"
+              value={chatInputContent}
+              onChangeText={this._onChangeChatInput}
+              style={{ height: 100, fontSize: 18 }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity onPress={this._sendMessage}>
+              <Text style={{ color: '#0099ff', fontSize: 14, marginRight: 15 }}>Gửi</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
